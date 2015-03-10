@@ -1,61 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 '''
 Free SMDR daemon
 by Gabriele Tozzi <gabriele@tozzi.eu>, 2010-2011
-
-This software starts a TCP server and listens for a SMDR stream. The received
-data is then written in raw format to a log file and also to a MySQL database.
-
-Here is the SQL to create the table:
- CREATE TABLE `freesmdr` (
-  `idfreesmdr` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `call_start` datetime DEFAULT NULL,
-  `call_duration` time DEFAULT NULL,
-  `ring_duration` time DEFAULT NULL,
-  `caller` varchar(255) DEFAULT NULL,
-  `direction` enum('I','O') DEFAULT NULL,
-  `called_number` varchar(255) DEFAULT NULL,
-  `dialled_number` varchar(255) DEFAULT NULL,
-  `account` varchar(255) DEFAULT NULL,
-  `is_internal` tinyint(1) DEFAULT NULL COMMENT '**BOOL**',
-  `call_id` int(10) unsigned DEFAULT NULL,
-  `continuation` tinyint(1) DEFAULT NULL COMMENT '**BOOL**',
-  `paty1device` char(5) DEFAULT NULL,
-  `party1name` varchar(255) DEFAULT NULL,
-  `party2device` char(5) DEFAULT NULL,
-  `party2name` varchar(255) DEFAULT NULL,
-  `hold_time` time DEFAULT NULL,
-  `park_time` time DEFAULT NULL,
-  `authvalid` varchar(255) DEFAULT NULL,
-  `authcode` varchar(255) DEFAULT NULL,
-  `user_charged` varchar(255) DEFAULT NULL,
-  `call_charge` varchar(255) DEFAULT NULL,
-  `currency` varchar(255) DEFAULT NULL,
-  `amount_change` varchar(255) DEFAULT NULL COMMENT 'Amount at last User Change',
-  `call_units` varchar(255) DEFAULT NULL,
-  `units_change` varchar(255) DEFAULT NULL COMMENT 'Units at last User Change',
-  `cost_per_unit` varchar(255) DEFAULT NULL,
-  `markup` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`idfreesmdr`),
-  KEY `direction_idx` (`direction`),
-  KEY `caller_idx` (`caller`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='Freesmdr log table';
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 '''
 
 from ConfigParser import SafeConfigParser
@@ -267,16 +215,56 @@ def sighandler(signum = None, frame = None):
     exitcleanup(signum)
 
 def parse_args():
+    usage = "%prog [options]"
     parser = OptionParser(usage=usage, version=NAME + ' ' + VERSION)
     parser.add_option("-c", "--config", dest="config",
-                help="config file path", action="store_true")
+                help="config file path", action="store")
     parser.add_option("-f", "--foreground", dest="foreground",
                 help="don't daemonize", action="store_true")
     return parser.parse_args()
 
+def parse_config(file_path):
+    parser = SafeConfigParser()
+    parser.read(file_path)
+
+    core = {}
+    core['host'] = parser.get('core', 'host')
+    core['port'] = parser.get('core', 'port')
+
+    logger = {}
+    logger['level'] = parser.get('logger', 'level')
+    logger['file']  = parser.get('logger', 'file')
+    logger['debug'] = parser.get('logger', 'debug')
+
+    mysql = {}
+    mysql['host']     = parser.get('mysql', 'host')
+    mysql['user']     = parser.get('mysql', 'user')
+    mysql['password'] = parser.get('mysql', 'password')
+    mysql['db']       = parser.get('mysql', 'db')
+    mysql['table']    = parser.get('mysql', 'table')
+
+    elasticsearch = {}
+    elasticsearch['url']   = parser.get('elasticsearch', 'url')
+    elasticsearch['port']  = parser.get('elasticsearch', 'port')
+    elasticsearch['index'] = parser.get('elasticsearch', 'index')
+
+    return (core, logger, mysql, elasticsearch)
+
+
+def daemonize():
+    pid = os.fork()
+    
+    
+    
+    
+    
+
+
 if __name__=="__main__":
     # Parse command line
     (options, args) = parse_args()
+
+    (core, logger, mysql, elasticsearch) = parse_config(options.config)
 
     # Gracefully process signals
     signal.signal(signal.SIGTERM, sighandler)
@@ -284,6 +272,7 @@ if __name__=="__main__":
 
     # Fork & go to background
     if not options.foreground:
+        # daemonize
         pid = os.fork()
     else:
         pid = 0
