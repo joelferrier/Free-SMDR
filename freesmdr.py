@@ -284,11 +284,16 @@ if __name__=="__main__":
         if pid == 0:
             # 2nd child
             # Set up file logging
+            if logger['level'] == "DEBUG":
+                log_level = logging.DEBUG
+            else:
+                log_level = logging.INFO
+
             logging.basicConfig(
-                level = logging.DEBUG,
+                level = log_level,
                 format = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                 datefmt = '%Y-%m-%d %H:%M:%S',
-                filename = LOGINFO,
+                filename = logger['debug'],
                 filemode = 'a'
             )
 
