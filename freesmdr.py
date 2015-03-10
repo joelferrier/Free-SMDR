@@ -58,6 +58,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
 
+from ConfigParser import SafeConfigParser
+import argparse
 from SocketServer import TCPServer
 from SocketServer import BaseRequestHandler
 import sys, os
@@ -65,7 +67,7 @@ from optparse import OptionParser
 import traceback
 import re, math
 from datetime import datetime, time
-import MySQLdb
+#import MySQLdb
 import logging
 import signal
 
@@ -142,13 +144,13 @@ class RecvHandler(BaseRequestHandler):
         log.info(u'Got connection from ' + unicode(peerinfo[0]) + ' (' + unicode(peerinfo[1]) + ')')
         
         #Init database
-        conn = MySQLdb.connect(
-            host = MYSQL_DB['host'],
-            user = MYSQL_DB['user'],
-            passwd = MYSQL_DB['passwd'],
-            db = MYSQL_DB['db'],
-        )
-        conn.autocommit(True)
+#        conn = MySQLdb.connect(
+#            host = MYSQL_DB['host'],
+#            user = MYSQL_DB['user'],
+#            passwd = MYSQL_DB['passwd'],
+#            db = MYSQL_DB['db'],
+#        )
+#        conn.autocommit(True)
 
         #Receive data loop
         dbuffer = ""
@@ -259,69 +261,72 @@ class RecvHandler(BaseRequestHandler):
 def exitcleanup(signum):
     print "Signal %s received, exiting..." % signum
     server.server_close()
-    sys.exit(0)   
+    sys.exit(0)
 
 def sighandler(signum = None, frame = None):
     exitcleanup(signum)
 
+def parse_args():
+    parser = OptionParser(usage=usage, version=NAME + ' ' + VERSION)
+    parser.add_option("-c", "--config", dest="config",
+                help="config file path", action="store_true")
+    parser.add_option("-f", "--foreground", dest="foreground",
+                help="don't daemonize", action="store_true")
+    return parser.parse_args()
 
-# Parse command line
-usage = "%prog [options] <config_file>"
-parser = OptionParser(usage=usage, version=NAME + ' ' + VERSION)
-parser.add_option("-f", "--foreground", dest="foreground",
-            help="Don't daemonize", action="store_true")
+if __name__=="__main__":
+    # Parse command line
+    (options, args) = parse_args()
 
-(options, args) = parser.parse_args()
+    # Gracefully process signals
+    signal.signal(signal.SIGTERM, sighandler)
+    signal.signal(signal.SIGINT, sighandler)
 
-# Gracefully process signals
-signal.signal(signal.SIGTERM, sighandler)
-signal.signal(signal.SIGINT, sighandler)
-
-# Fork & go to background
-if not options.foreground:
-    pid = os.fork()
-else:
-    pid = 0
-if pid == 0:
-    # 1st child
+    # Fork & go to background
     if not options.foreground:
-        os.setsid()
         pid = os.fork()
+    else:
+        pid = 0
     if pid == 0:
-        # 2nd child
-        # Set up file logging
-        logging.basicConfig(
-            level = logging.DEBUG,
-            format = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-            datefmt = '%Y-%m-%d %H:%M:%S',
-            filename = LOGINFO,
-            filemode = 'a'
-        )
+        # 1st child
+        if not options.foreground:
+            os.setsid()
+            pid = os.fork()
+        if pid == 0:
+            # 2nd child
+            # Set up file logging
+            logging.basicConfig(
+                level = logging.DEBUG,
+                format = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                datefmt = '%Y-%m-%d %H:%M:%S',
+                filename = LOGINFO,
+                filemode = 'a'
+            )
 
-        if options.foreground:
-            # Set up console logging
-            console = logging.StreamHandler()
-            console.setLevel(logging.INFO)
-            formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
-            console.setFormatter(formatter)
-            logging.getLogger('').addHandler(console)
-        
-        # Create logger
-        log = logging.getLogger()
+            if options.foreground:
+                # Set up console logging
+                console = logging.StreamHandler()
+                console.setLevel(logging.INFO)
+                formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+                console.setFormatter(formatter)
+                logging.getLogger('').addHandler(console)
 
-        # Start server
-        server_running = True
-        server = TCPServer((HOST, PORT), RecvHandler)
-        try:
-            server.serve_forever()
-        except Exception as e:
-            log.critical("Got exception, crashing...")
-            log.critical(unicode(e))
-            log.critical(traceback.format_exc())
-            raise e
-        server.server_close()
-        sys.exit(0)
+            # Create logger
+            log = logging.getLogger()
+
+            # Start server
+            server_running = True
+            server = TCPServer((HOST, PORT), RecvHandler)
+            try:
+                server.serve_forever()
+            except Exception as e:
+                log.critical("Got exception, crashing...")
+                log.critical(unicode(e))
+                log.critical(traceback.format_exc())
+                raise e
+            server.server_close()
+            sys.exit(0)
+        else:
+            os._exit(0)
     else:
         os._exit(0)
-else:
-    os._exit(0)
