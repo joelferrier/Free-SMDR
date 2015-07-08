@@ -18,6 +18,7 @@ from datetime import datetime, time
 #import MySQLdb
 import logging
 import signal
+from string import Template
 
 # Info
 NAME = 'Free SMDR'
@@ -26,8 +27,8 @@ VERSION = '0.9'
 # Settings
 HOST = ''                     #Listen on this IP
 PORT = 5514                   #Listen on this port
-LOGFILE = '/var/log/freesmdr/freesmdr.log' #Where to log the received data
-LOGINFO = '/var/log/freesmdr/freesmdr.info' #Debug output
+LOGFILE = 'freesmdr.log' #Where to log the received data
+LOGINFO = 'freesmdr.info' #Debug output
 MYSQL_DB = {
     'host': 'localhost',
     'user': 'freesmdr',
@@ -91,14 +92,6 @@ class RecvHandler(BaseRequestHandler):
         peerinfo = self.request.getpeername()
         log.info(u'Got connection from ' + unicode(peerinfo[0]) + ' (' + unicode(peerinfo[1]) + ')')
         
-        #Init database
-#        conn = MySQLdb.connect(
-#            host = MYSQL_DB['host'],
-#            user = MYSQL_DB['user'],
-#            passwd = MYSQL_DB['passwd'],
-#            db = MYSQL_DB['db'],
-#        )
-#        conn.autocommit(True)
 
         #Receive data loop
         dbuffer = ""
@@ -159,44 +152,75 @@ class RecvHandler(BaseRequestHandler):
                     log.debug(u"Correctly parsed 1 line: " + unicode(dictv))
                     
                     #Prepare dictv for query
-                    map(lambda v: MySQLdb.string_literal(v), dictv)
+                    #map(lambda v: MySQLdb.string_literal(v), dictv)
                     dictv['table'] = MYSQL_DB['table']
                     
                     # Put the data into the DB
-                    cursor = conn.cursor()
-                    q = """
-                        INSERT INTO `%(table)s` SET
-                            `call_start` = '%(call_start)s',
-                            `call_duration` = '%(call_duration)s',
-                            `ring_duration` = '%(ring_duration)s',
-                            `caller` = '%(caller)s',
-                            `direction` = '%(direction)s',
-                            `called_number` = '%(called_number)s',
-                            `dialled_number` = '%(dialled_number)s',
-                            `account` = '%(account)s',
-                            `is_internal` = %(is_internal)d,
-                            `call_id` = %(call_id)d,
-                            `continuation` = %(continuation)d,
-                            `paty1device` = '%(party1device)s',
-                            `party1name` = '%(party1name)s',
-                            `party2device` = '%(party2device)s',
-                            `party2name` = '%(party2name)s',
-                            `hold_time` = '%(hold_time)s',
-                            `park_time` = '%(park_time)s',
-                            `authvalid` = '%(authvalid)s',
-                            `authcode` = '%(authcode)s',
-                            `user_charged` = '%(user_charged)s',
-                            `call_charge` = '%(call_charge)s',
-                            `currency` = '%(currency)s',
-                            `amount_change` = '%(amount_change)s',
-                            `call_units` = '%(call_units)s',
-                            `units_change` = '%(units_change)s',
-                            `cost_per_unit` = '%(cost_per_unit)s',
-                            `markup` = '%(markup)s';
-                    """ % dictv
+                    #cursor = conn.cursor()
+                    #q = """
+                    #    INSERT INTO `%(table)s` SET
+                    #        `call_start` = '%(call_start)s',
+                    #        `call_duration` = '%(call_duration)s',
+                    #        `ring_duration` = '%(ring_duration)s',
+                    #        `caller` = '%(caller)s',
+                    #        `direction` = '%(direction)s',
+                    #        `called_number` = '%(called_number)s',
+                    #        `dialled_number` = '%(dialled_number)s',
+                    #        `account` = '%(account)s',
+                    #        `is_internal` = %(is_internal)d,
+                    #        `call_id` = %(call_id)d,
+                    #        `continuation` = %(continuation)d,
+                    #        `paty1device` = '%(party1device)s',
+                    #        `party1name` = '%(party1name)s',
+                    #        `party2device` = '%(party2device)s',
+                    #        `party2name` = '%(party2name)s',
+                    #        `hold_time` = '%(hold_time)s',
+                    #        `park_time` = '%(park_time)s',
+                    #        `authvalid` = '%(authvalid)s',
+                    #        `authcode` = '%(authcode)s',
+                    #        `user_charged` = '%(user_charged)s',
+                    #        `call_charge` = '%(call_charge)s',
+                    #        `currency` = '%(currency)s',
+                    #        `amount_change` = '%(amount_change)s',
+                    #        `call_units` = '%(call_units)s',
+                    #        `units_change` = '%(units_change)s',
+                    #        `cost_per_unit` = '%(cost_per_unit)s',
+                    #        `markup` = '%(markup)s';
+                    #""" % dictv
+                    log.info(unicode(dictv))
+                    template = Template("$call_start, $call_duration, $ring_duration, $caller, $direction, $called_number, $dialled_number, $account, $is_internal, $call_id, $continuation, $party1device, $party1name, $party2device, $party2name, $hold_time, $park_time, $authvalid, $authcode, $user_charged, $call_charge, $currency, $amount_change, $call_units, $units_change, $cost_per_unit, $markup,")
+                    q = template.substitute(call_start= dictv['call_start'],
+                                            call_duration= dictv['call_duration'],
+                                            ring_duration= dictv['ring_duration'],
+                                            caller= dictv['caller'],
+                                            direction= dictv['direction'],
+                                            called_number= dictv['called_number'],
+                                            dialled_number= dictv['dialled_number'],
+                                            account= dictv['account'],
+                                            is_internal= dictv['is_internal'],
+                                            call_id= dictv['call_id'],
+                                            continuation= dictv['continuation'],
+                                            party1device= dictv['party1device'],
+                                            party1name= dictv['party1name'],
+                                            party2device= dictv['party2device'],
+                                            party2name= dictv['party2name'],
+                                            hold_time= dictv['hold_time'],
+                                            park_time= dictv['park_time'],
+                                            authvalid= dictv['authvalid'],
+                                            authcode= dictv['authcode'],
+                                            user_charged= dictv['user_charged'],
+                                            call_charge= dictv['call_charge'],
+                                            currency= dictv['currency'],
+                                            amount_change= dictv['amount_change'],
+                                            call_units= dictv['call_units'],
+                                            units_change= dictv['units_change'],
+                                            cost_per_unit= dictv['cost_per_unit'],
+                                            markup= dictv['markup'])
+
                     log.debug(u"Query: " + unicode(q))
-                    cursor.execute(q)
-                    cursor.close()
+                    log.info(unicode(q))
+                    #cursor.execute(q)
+                    #cursor.close()
             
             else:
                 log.error(u"Parse error on line (len " + str(len(vals)) + " vs " + str(len(fieldlist)) + "): " + unicode(line))
@@ -253,12 +277,6 @@ def parse_config(file_path):
 
 def daemonize():
     pid = os.fork()
-    
-    
-    
-    
-    
-
 
 if __name__=="__main__":
     # Parse command line
